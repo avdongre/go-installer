@@ -108,371 +108,1059 @@ $ ./out/installer -mode install -install-dir /home/adongre/1.0
 
 
 ```
-You are a senior platform engineer designing an AI-powered developer security workflow.
+# Design a Production-Grade AI-Powered Developer Security Workflow Using MCP, Claude Code, Snyk, and GitHub
 
-Goal:
-Build a Security MCP Server that integrates with Claude Code to perform pre-PR security checks and automated remediation before a GitHub Pull Request is created.
+## Role
 
-Problem:
-Currently developers create PRs, CI runs Snyk scans, and builds fail because of dependency vulnerabilities unrelated to their code changes. Developers waste time fixing existing dependency issues after the PR is already created.
+You are a senior platform engineer designing an enterprise internal developer platform capability.
 
-We want to move security remediation earlier in the workflow.
+Design an AI-powered security workflow that integrates **Claude Code**, **Model Context Protocol (MCP)**, **Snyk**, and **GitHub** to perform intelligent security analysis and automated remediation **before Pull Requests are created**.
 
-Target developer experience:
+The system should be designed like a capability built by large engineering organizations.
 
-Developer workflow:
+The goal:
 
-1. Developer works on a feature branch.
-2. Developer asks Claude Code:
-   "Create a PR"
-3. Before creating the PR, Claude invokes a Security MCP Server.
-4. Security MCP Server:
-   - analyzes dependency vulnerabilities
-   - checks whether issues are introduced by this change
-   - identifies safe upgrade versions
-   - applies automatic fixes where appropriate
-   - validates the build/tests
-   - returns a security summary
-5. Claude creates the GitHub PR with:
-   - feature changes
-   - optional security remediation commit
-   - security summary
+Move security remediation from:
 
+```
+Developer creates PR
+        |
+        v
+CI fails
+        |
+        v
+Developer fixes vulnerabilities
+```
 
-Architecture requirements:
+to:
 
-Design the system with these components:
+```
+Developer requests PR
+        |
+        v
+AI security analysis
+        |
+        v
+Safe remediation
+        |
+        v
+Validation
+        |
+        v
+Create PR
+```
 
-1. Claude Code
-Responsibilities:
-- Understand developer intent
-- Call MCP tools
-- Modify code
-- Run commands
-- Create commits
-- Create PRs
+---
 
+# Business Problem
 
-2. Security MCP Server
+Current developer workflow:
 
-The MCP server should expose tools such as:
+1. Developer creates a feature branch.
+2. Developer implements changes.
+3. Developer opens a Pull Request.
+4. CI runs security scans using Snyk.
+5. Builds fail because of dependency vulnerabilities.
+6. Developers fix unrelated dependency issues after PR creation.
+7. Security teams accumulate vulnerability debt.
 
-security.scan_before_pr()
+Problems:
 
-Input:
+* Security feedback arrives too late.
+* Developers context-switch after PR creation.
+* Existing vulnerabilities block unrelated changes.
+* Dependency upgrades are performed manually.
+* Security teams lack automated remediation workflows.
+
+---
+
+# Target Developer Experience
+
+Developer:
+
+```
+Create PR
+```
+
+Claude Code workflow:
+
+```
+Understand developer intent
+
+        |
+
+Invoke Security MCP Server
+
+        |
+
+Analyze vulnerabilities
+
+        |
+
+Determine if vulnerabilities are related
+to current changes
+
+        |
+
+Apply safe fixes when allowed
+
+        |
+
+Run validation
+
+        |
+
+Create commits
+
+        |
+
+Create GitHub PR
+```
+
+Generated PR contains:
+
+* Feature implementation
+* Optional security remediation commit
+* Security analysis summary
+* Validation results
+
+---
+
+# Developer Security Intent Support
+
+The system must understand natural language security preferences.
+
+Examples:
+
+## Default
+
+Developer:
+
+```
+Create PR
+```
+
+Behavior:
+
+```
+Security scan: YES
+Safe dependency fixes: YES
+Major upgrades: Ask developer
+```
+
+---
+
+## Scan only mode
+
+Developer:
+
+```
+Create PR but no Snyk fixes
+```
+
+Interpretation:
+
+```json
 {
-  repository,
-  branch,
-  changed_files,
-  dependency_files
+  "action": "create_pr",
+  "security_mode": "scan_only",
+  "allow_dependency_changes": false
 }
+```
 
-Output:
-{
-  vulnerabilities_found,
-  severity,
-  affected_dependencies,
-  recommended_actions
-}
+Behavior:
 
+```
+Run Snyk scan
+Generate security report
+Do not modify dependency files
+Do not create security commits
+Create PR with findings
+```
 
-security.analyze_fix()
+---
 
-Input:
-{
-  dependency,
-  current_version,
-  vulnerability,
-  candidate_versions
-}
+## Full remediation mode
 
-Output:
-{
-  recommended_version,
-  risk_level,
-  compatibility_analysis,
-  auto_fix_allowed
-}
+Developer:
 
+```
+Create PR and fix security issues
+```
 
-security.apply_fix()
+Behavior:
 
-Input:
-{
-  dependency_changes
-}
+```
+Scan
+Analyze
+Apply safe fixes
+Validate
+Commit fixes
+Create PR
+```
 
-Action:
-- modify dependency files
-- update lock files
-- return changed files
+---
 
+## Security override rules
 
-security.validate_fix()
-
-Action:
-- run build
-- run unit tests
-- check regression
-
-
-security.generate_summary()
-
-Output:
-Markdown summary for GitHub PR.
-
-
-3. Snyk Integration
-
-Integrate with Snyk using API.
-
-The system should retrieve:
-
-- vulnerabilities
-- severity
-- CVE information
-- fixed versions
-- dependency paths
-- project information
-
-
-The system should classify findings:
-
-Category A:
-New vulnerability introduced by current change
-
-Action:
-BLOCK PR
-
-
-Category B:
-Existing vulnerability unrelated to change but has safe automatic fix
-
-Action:
-Create security commit
-
-
-Category C:
-Existing vulnerability requiring major upgrade
-
-Action:
-Warn developer
-
-
-Category D:
-No fix available
-
-Action:
-Report only
-
-
-4. Dependency intelligence
-
-The system should support:
-
-Java:
-- Maven pom.xml
-- Gradle build files
-
-JavaScript:
-- package.json
-- package-lock.json
-
-Python:
-- requirements.txt
-- pyproject.toml
-
-Go:
-- go.mod
-
-
-The agent should understand:
-
-- direct dependency vs transitive dependency
-- semantic versioning
-- breaking changes
-- dependency conflicts
-- lock file updates
-
-
-5. GitHub Integration
-
-The system should support:
-
-- branch creation
-- commit creation
-- PR creation
-- PR comments
-
-
-Security fixes should be committed separately:
+Developer preferences control remediation behavior but cannot bypass mandatory security policies.
 
 Example:
 
-Commit 1:
-feat:
-Add payment validation
+Developer:
 
+```
+Create PR but no Snyk fixes
+```
 
-Commit 2:
-chore(security):
-Upgrade jackson-databind from 2.14.1 to 2.17.2
+Finding:
 
+```
+New critical vulnerability introduced by this branch
+```
 
-PR description:
+Result:
 
-Feature:
-Add payment validation
+```
+BLOCK PR
+```
 
-Security changes:
+Reason:
+
+```
+Developer disabled remediation,
+but organization policy requires blocking new critical vulnerabilities.
+```
+
+---
+
+# Architecture Overview
+
+Design the following architecture:
+
+```
+Developer
+
+   |
+   |
+
+Claude Code
+
+   |
+   | MCP Protocol
+
+   |
+
+Security MCP Server
+
+   |
+   +-----------------------+
+   |                       |
+   v                       v
+
+Snyk API              AI Reasoning Engine
+
+   |                       |
+
+   v                       v
+
+Dependency Graph     Compatibility Analysis
+
+   |
+   v
+
+Fix Recommendation Engine
+
+   |
+   v
+
+GitHub Integration
+
+   |
+   v
+
+Pull Request
+```
+
+---
+
+# Component 1: Claude Code
+
+Responsibilities:
+
+* Understand developer commands.
+* Extract developer intent.
+* Select security execution mode.
+* Invoke MCP tools.
+* Modify code.
+* Update dependencies.
+* Execute commands.
+* Run tests.
+* Create commits.
+* Create GitHub Pull Requests.
+
+Example:
+
+User:
+
+```
+Create PR but no Snyk fixes
+```
+
+Claude extracts:
+
+```json
+{
+  "intent": "create_pull_request",
+  "security_mode": "scan_only"
+}
+```
+
+---
+
+# Component 2: Security MCP Server
+
+The MCP server exposes security automation tools.
+
+---
+
+# MCP Tool: security.scan_before_pr()
+
+Purpose:
+
+Analyze repository security before PR creation.
+
+Input:
+
+```json
+{
+  "repository": "payment-service",
+  "branch": "feature/payment-validation",
+  "changed_files": [
+    "src/payment/PaymentValidator.kt"
+  ],
+  "dependency_files": [
+    "build.gradle.kts",
+    "package.json",
+    "requirements.txt"
+  ],
+  "security_mode": "auto_fix"
+}
+```
+
+Output:
+
+```json
+{
+  "vulnerabilities_found": true,
+  "findings": [],
+  "severity": "HIGH",
+  "recommended_actions": []
+}
+```
+
+---
+
+# MCP Tool: security.analyze_fix()
+
+Purpose:
+
+Use AI reasoning to determine if a dependency upgrade is safe.
+
+Input:
+
+```json
+{
+  "dependency": "spring-boot",
+  "current_version": "3.1.2",
+  "candidate_version": "3.3.0",
+  "vulnerability": "CVE-XXXX"
+}
+```
+
+Output:
+
+```json
+{
+  "recommended_version": "3.2.9",
+  "risk_level": "MEDIUM",
+  "breaking_changes": false,
+  "auto_fix_allowed": true,
+  "reason": "Compatible upgrade"
+}
+```
+
+---
+
+# MCP Tool: security.apply_fix()
+
+Responsibilities:
+
+* Update dependency files.
+* Update lock files.
+* Resolve dependency conflicts.
+* Preserve formatting.
+* Return modified files.
+
+Supported:
+
+```
+build.gradle.kts
+pom.xml
+package.json
+package-lock.json
+requirements.txt
+pyproject.toml
+go.mod
+```
+
+---
+
+# MCP Tool: security.validate_fix()
+
+Execute:
+
+## Kotlin
+
+```
+./gradlew test
+```
+
+## Java
+
+```
+mvn test
+```
+
+## Python
+
+```
+pytest
+```
+
+## UI
+
+```
+npm test
+npm run build
+```
+
+Validate:
+
+* Build success
+* Unit tests
+* Integration tests
+* Dependency resolution
+* Regression impact
+
+---
+
+# MCP Tool: security.generate_summary()
+
+Generate GitHub PR markdown.
+
+Example:
+
+```markdown
+## Security Analysis
+
+Mode:
+Automatic remediation
+
+Changes:
+
 - Upgraded jackson-databind
 - Fixed CVE-XXXX
 
 Validation:
-- Unit tests passed
-- Integration tests passed
 
+:white_check_mark:
+Gradle tests passed
 
-6. AI reasoning layer
+:white_check_mark:
+Integration tests passed
+```
 
-The system should use an LLM to reason about:
+---
 
-- whether dependency changes are safe
-- whether upgrades are compatible
-- whether the vulnerability affects the changed code
-- whether to automatically fix or ask the developer
+# Snyk Integration
 
+Integrate using Snyk API.
+
+Retrieve:
+
+* vulnerabilities
+* CVEs
+* severity
+* dependency paths
+* fixed versions
+* project metadata
+* dependency graph
+
+---
+
+# Vulnerability Classification
+
+## Category A
+
+New vulnerability introduced by current change.
+
+Action:
+
+```
+BLOCK PR
+```
 
 Example:
 
-Snyk finding:
+Developer adds vulnerable dependency.
 
-Upgrade Spring Boot 3.1.2 to 3.3.0
+---
 
+## Category B
 
-Agent analysis:
+Existing vulnerability with safe upgrade.
 
-Current project:
+Action:
+
+```
+Create security commit
+```
+
+Example:
+
+```
+chore(security):
+
+Upgrade jackson-databind
+2.14.1 -> 2.17.2
+```
+
+---
+
+## Category C
+
+Requires major upgrade.
+
+Action:
+
+```
+Warn developer
+```
+
+Example:
+
+```
+Spring Boot 3.1 -> 3.3
+
+Requires Spring Cloud upgrade.
+
+Risk: HIGH
+```
+
+---
+
+## Category D
+
+No fix available.
+
+Action:
+
+```
+Report only
+```
+
+---
+
+# Dependency Intelligence
+
+The system must understand:
+
+* direct dependencies
+* transitive dependencies
+* dependency graphs
+* semantic versioning
+* breaking changes
+* framework compatibility
+* lock file updates
+
+---
+
+# Supported Technology Ecosystems
+
+## Kotlin / JVM
+
+Support:
+
+Files:
+
+```
+build.gradle.kts
+settings.gradle.kts
+gradle.lockfile
+```
+
+Understand:
+
+* Kotlin version compatibility
+* JVM compatibility
+* Spring Boot
+* Spring Cloud
+* Ktor
+* Coroutines
+* Android Gradle Plugin
+
+---
+
+## Java
+
+Support:
+
+```
+pom.xml
+build.gradle
+```
+
+Understand:
+
+* Maven dependency tree
+* Gradle dependency resolution
+* BOM dependencies
+
+---
+
+## Python
+
+Support:
+
+```
+requirements.txt
+pyproject.toml
+poetry.lock
+Pipfile
+```
+
+Understand:
+
+* pip
+* Poetry
+* virtual environments
+* Python version compatibility
+
+Frameworks:
+
+* Django
+* FastAPI
+* Flask
+
+---
+
+## UI Applications
+
+Support:
+
+Frameworks:
+
+* React
+* Angular
+* Vue
+* Next.js
+
+Files:
+
+```
+package.json
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+```
+
+Understand:
+
+* npm dependency graph
+* frontend vulnerabilities
+* bundled libraries
+* build tooling
+* supply chain risks
+
+Examples:
+
+```
+react
+next
+axios
+lodash
+webpack
+vite
+```
+
+---
+
+# AI Reasoning Layer
+
+Use LLM reasoning for:
+
+* dependency impact analysis
+* compatibility evaluation
+* upgrade safety
+* changed-code relevance
+* remediation decisions
+
+Example:
+
+Finding:
+
+```
+Upgrade Spring Boot 3.1.2 -> 3.3.0
+```
+
+Repository:
+
+```
 Spring Cloud 2022.0
+```
 
-Risk:
-HIGH
+AI reasoning:
 
-Reason:
-Spring Boot 3.3 requires Spring Cloud 2023
+```
+Risk: HIGH
 
-Recommendation:
-Do not auto-upgrade.
-Ask developer.
+Spring Boot 3.3 requires Spring Cloud 2023.
 
+Automatic upgrade not allowed.
 
-7. Hook integration
+Developer approval required.
+```
 
-Design how Claude Code invokes this workflow.
+---
 
-Preferred flow:
+# GitHub Integration
 
-User:
-"Create PR"
+Support:
 
+* Branch creation
+* Commit creation
+* Pull Request creation
+* PR comments
+* Status checks
 
-Claude Code:
+Use:
 
-Before:
-gh pr create
+Preferred:
 
+```
+GitHub App
+```
 
-Invoke:
+Avoid:
 
-security.scan_before_pr()
+```
+Personal Access Tokens
+```
 
+---
 
-If fixes required:
+Example commits:
 
-security.apply_fix()
+Commit 1:
 
+```
+feat:
+Add payment validation
+```
 
-Run:
+Commit 2:
 
-mvn test
+```
+chore(security):
+Upgrade jackson-databind
+```
 
+---
 
-Then:
+# Credentials and Security
 
-git commit
+Required credentials:
 
+## Snyk
 
-Then:
+```
+SNYK_TOKEN
+```
 
-gh pr create
+Used for:
 
+* vulnerability scanning
+* dependency analysis
 
-8. Deployment architecture
+---
 
-Provide options:
+## GitHub
 
-Option A:
-Local MCP server
+Recommended:
 
-Developer laptop:
+GitHub App:
+
+```
+GITHUB_APP_ID
+GITHUB_PRIVATE_KEY
+GITHUB_INSTALLATION_ID
+```
+
+Permissions:
+
+* Contents read/write
+* Pull Requests read/write
+* Checks read/write
+
+---
+
+## AI Provider
+
+Example:
+
+```
+ANTHROPIC_API_KEY
+```
+
+Used for:
+
+* security reasoning
+* compatibility analysis
+
+---
+
+## Private Registries
+
+Support:
+
+Maven:
+
+```
+MAVEN_TOKEN
+```
+
+npm:
+
+```
+NPM_TOKEN
+```
+
+Python:
+
+```
+PYPI_TOKEN
+```
+
+---
+
+# Deployment Architecture
+
+## Option A: Local MCP Server
+
+```
+Developer Laptop
 
 Claude Code
- |
+
 Security MCP Server
- |
+
 Snyk API
+```
 
+Pros:
 
-Option B:
-Enterprise MCP service
+* Simple
+* Low latency
 
-Developer laptop:
+Cons:
+
+* Limited governance
+
+---
+
+## Option B: Enterprise MCP Platform
+
+Recommended:
+
+```
+Developer
 
 Claude Code
- |
+
 MCP Gateway
- |
-Security MCP Service
- |
-Snyk/GitHub/Jira
 
+Security Platform Service
 
-Recommend the best enterprise architecture.
++----------------+
+|                |
+Snyk          GitHub
+|
+Jira
+|
+Artifact Registry
+```
 
+Benefits:
 
-9. Security considerations
+* Central policy control
+* Auditing
+* Metrics
+* Enterprise governance
 
-Address:
+---
 
-- API key management
-- Snyk token handling
-- GitHub permissions
-- audit logs
-- developer approval for risky changes
-- preventing malicious dependency changes
+# Security Controls
 
+Implement:
 
-10. Deliverables
+## Secrets
 
-Produce:
+Use:
 
-1. Architecture diagram
-2. Component design
-3. MCP server API design
-4. Claude Code hook configuration
-5. Example MCP tool definitions
-6. Snyk API integration approach
-7. GitHub PR workflow
-8. Sample implementation skeleton
-9. Rollout plan for developers
-10. Metrics:
+* Vault
+* AWS Secrets Manager
+* Azure Key Vault
+
+---
+
+## Identity
+
+Use:
+
+* OIDC
+* SSO
+* Short-lived credentials
+
+---
+
+## Audit Logging
+
+Capture:
+
+* Developer intent
+* AI decisions
+* Dependency changes
+* Approval history
+* Security findings
+
+---
+
+## Supply Chain Protection
+
+Detect:
+
+* malicious packages
+* dependency confusion
+* typosquatting
+* untrusted registries
+
+---
+
+# Implementation Skeleton
+
+Recommended stack:
+
+Backend:
+
+```
+Kotlin Spring Boot
+or
+Python FastAPI
+```
+
+MCP:
+
+```
+Model Context Protocol SDK
+```
+
+Storage:
+
+```
+PostgreSQL
+Redis
+```
+
+Queue:
+
+```
+Kafka / SQS
+```
+
+Integrations:
+
+```
+Snyk API
+GitHub API
+Jira API
+```
+
+AI:
+
+```
+Claude API
+```
+
+---
+
+# Rollout Plan
+
+## Phase 1
+
+Capabilities:
+
+* Security scanning
+* Reporting
+* Kotlin/Python/UI support
+
+---
+
+## Phase 2
+
+Capabilities:
+
+* Safe automatic remediation
+* Security commits
+* Validation automation
+
+---
+
+## Phase 3
+
+Enterprise:
+
+* Policy engine
+* Dashboards
+* Compliance reporting
+* Organization-wide adoption
+
+---
+
+# Success Metrics
 
 Measure:
-- reduction in failed PR builds
-- vulnerabilities fixed before PR
-- developer time saved
-- security debt reduction
 
+## Developer Productivity
 
-Design this as a production-grade internal developer platform capability similar to what large engineering organizations build.
+* Reduction in failed PR builds
+* Developer hours saved
+* Faster PR completion
+
+## Security
+
+* Vulnerabilities fixed before PR
+* Mean time to remediation
+* Dependency debt reduction
+
+## Platform Adoption
+
+* Repositories onboarded
+* PRs using security automation
+* Automatic fix success rate
+
+---
+
+Design this as a production-grade internal developer platform capability that combines AI agents, MCP tooling, security automation, and developer experience optimization.
+
 ```
